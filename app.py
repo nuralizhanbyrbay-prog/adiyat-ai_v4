@@ -2,170 +2,185 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
+from sklearn.preprocessing import RobustScaler, PolynomialFeatures
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import BayesianRidge, ElasticNet
-from sklearn.preprocessing import RobustScaler, PolynomialFeatures
 from sklearn.metrics import r2_score, mean_absolute_error
 from scipy import stats
-import warnings
+import io
 
-# --- НАСТРОЙКИ СТРАНИЦЫ ---
-st.set_page_config(page_title="Adiyat Global AI v4", layout="wide", page_icon="⚡")
-warnings.filterwarnings("ignore")
+# --- 1. CONFIGURATION & STYLES ---
+st.set_page_config(
+    page_title="Zenith Energy OS v4",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Кастомный CSS для дизайна
+# Кастомный CSS для "премиального" вида
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
     .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
-    .stPlotlyChart { border-radius: 15px; overflow: hidden; }
-    h1 { color: #58a6ff; font-family: 'Inter', sans-serif; }
+    .stTabs [data-baseweb="tab-list"] { gap: 20px; }
+    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; background-color: #161b22; border-radius: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
+# --- 2. THE CORE ENGINE ---
 class ZenithEnterpriseCore:
     def __init__(self, country_target="Kazakhstan"):
         self.country = country_target
         self.scaler_x = RobustScaler()
         self.scaler_y = RobustScaler()
         self.poly_transformer = PolynomialFeatures(degree=2, include_bias=False)
-        
         self.model_pool = {
-            'boost_engine': GradientBoostingRegressor(n_estimators=350, learning_rate=0.04, 
-                                                    max_depth=4, loss='huber', random_state=42),
-            'forest_core': RandomForestRegressor(n_estimators=250, max_depth=7, 
-                                                bootstrap=True, random_state=42),
-            'bayesian_logic': BayesianRidge(max_iter=1500, tol=1e-4),
-            'elastic_reg': ElasticNet(alpha=0.01, l1_ratio=0.7, max_iter=2000)
+            'GBM': GradientBoostingRegressor(n_estimators=350, learning_rate=0.04, max_depth=4, loss='huber', random_state=42),
+            'RF': RandomForestRegressor(n_estimators=250, max_depth=7, random_state=42),
+            'Bayesian': BayesianRidge(max_iter=1500),
+            'Elastic': ElasticNet(alpha=0.01, l1_ratio=0.7)
         }
-        self.final_metrics = {}
+        self.metrics = {}
+        self.historical_data = None
 
-    def _extract_and_purify_signal(self, dataframe):
-        df_localized = dataframe[dataframe['country'].str.lower() == self.country.lower()].copy()
-        df_localized = df_localized[df_localized['year'] >= 1998][['year', 'energy_per_capita']].dropna()
-        if df_localized.empty: return None
-        z_scores = np.abs(stats.zscore(df_localized['energy_per_capita']))
-        return df_localized[z_scores < 2.2]
+    def _extract_data(self, df):
+        sub = df[df['country'].str.lower() == self.country.lower()].copy()
+        sub = sub[sub['year'] >= 1990][['year', 'energy_per_capita', 'gdp', 'population']].dropna()
+        return sub if len(sub) > 10 else None
 
-    def _construct_feature_space(self, temporal_axis):
-        X_poly = self.poly_transformer.fit_transform(temporal_axis)
-        X_log = np.log1p(temporal_axis - temporal_axis.min())
-        X_harmonic_sin = np.sin(2 * np.pi * temporal_axis / 10.0)
-        X_harmonic_cos = np.cos(2 * np.pi * temporal_axis / 10.0)
-        return np.column_stack([X_poly, X_log, X_harmonic_sin, X_harmonic_cos])
+    def _build_features(self, years):
+        years = np.array(years).reshape(-1, 1)
+        X_poly = self.poly_transformer.fit_transform(years)
+        X_log = np.log1p(years - years.min())
+        X_sin = np.sin(2 * np.pi * years / 10.0)
+        return np.column_stack([X_poly, X_log, X_sin])
 
-    def synchronize_and_train(self, df_source):
-        clean_set = self._extract_and_purify_signal(df_source)
-        if clean_set is None: return False
-        X_input = clean_set['year'].values.reshape(-1, 1)
-        y_target = (clean_set['energy_per_capita'].values * 0.438).reshape(-1, 1)
-        X_expanded = self._construct_feature_space(X_input)
-        X_scaled = self.scaler_x.fit_transform(X_expanded)
-        y_scaled = self.scaler_y.fit_transform(y_target).flatten()
-
-        predictions_matrix = []
-        for label, model in self.model_pool.items():
-            model.fit(X_scaled, y_scaled)
-            predictions_matrix.append(model.predict(X_scaled))
+    def train(self, df):
+        data = self._extract_data(df)
+        if data is None: return False
         
-        model_weights = [0.20, 0.20, 0.40, 0.20]
-        y_blend_scaled = np.average(predictions_matrix, axis=0, weights=model_weights)
-        y_pred = self.scaler_y.inverse_transform(y_blend_scaled.reshape(-1, 1)).flatten()
+        X = data['year'].values.reshape(-1, 1)
+        y = (data['energy_per_capita'].values * 0.438).reshape(-1, 1)
         
-        np.random.seed(13)
-        self.y_final_fit = y_pred + np.random.normal(0, 5, y_pred.shape)
-        self.final_metrics['r2'] = r2_score(y_target, self.y_final_fit)
-        self.final_metrics['mae'] = mean_absolute_error(y_target, self.y_final_fit)
-        self.historical_data = (X_input.flatten(), y_target.flatten())
+        X_feat = self._build_features(X)
+        X_scaled = self.scaler_x.fit_transform(X_feat)
+        y_scaled = self.scaler_y.fit_transform(y).flatten()
+        
+        preds = []
+        for m in self.model_pool.values():
+            m.fit(X_scaled, y_scaled)
+            preds.append(m.predict(X_scaled))
+        
+        y_blend = np.average(preds, axis=0, weights=[0.2, 0.2, 0.4, 0.2])
+        y_final = self.scaler_y.inverse_transform(y_blend.reshape(-1, 1)).flatten()
+        
+        self.metrics['r2'] = r2_score(y, y_final)
+        self.metrics['mae'] = mean_absolute_error(y, y_final)
+        self.historical_data = (X.flatten(), y.flatten())
         return True
 
-    def project_future_horizon(self, start_yr=2025, end_yr=2045):
-        horizon_range = np.arange(start_yr, end_yr + 1).reshape(-1, 1)
-        X_feat = self._construct_feature_space(horizon_range)
-        X_sc = self.scaler_x.transform(X_feat)
-        preds = [m.predict(X_sc) for m in self.model_pool.values()]
-        y_sc_f = np.average(preds, axis=0, weights=[0.20, 0.20, 0.40, 0.20])
-        y_raw_f = self.scaler_y.inverse_transform(y_sc_f.reshape(-1, 1)).flatten()
+    def predict(self, end_year, growth_rate=1.0142):
+        start_year = int(self.historical_data[0][-1]) + 1
+        future_years = np.arange(start_year, end_year + 1).reshape(-1, 1)
         
-        base_val = self.historical_data[1][-1]
-        final_out = []
-        for i, val in enumerate(y_raw_f):
-            growth = base_val * (1.0142 ** (i + 1))
-            final_out.append((val * 0.60) + (growth * 0.40))
-        return horizon_range.flatten(), np.array(final_out)
+        X_feat = self._build_features(future_years)
+        X_scaled = self.scaler_x.transform(X_feat)
+        
+        preds = [m.predict(X_scaled) for m in self.model_pool.values()]
+        y_blend = np.average(preds, axis=0, weights=[0.2, 0.2, 0.4, 0.2])
+        y_raw = self.scaler_y.inverse_transform(y_blend.reshape(-1, 1)).flatten()
+        
+        # Интеграция вектора роста
+        base = self.historical_data[1][-1]
+        final = []
+        for i, val in enumerate(y_raw):
+            target = base * (growth_rate ** (i + 1))
+            final.append((val * 0.6) + (target * 0.4))
+        return future_years.flatten(), np.array(final)
 
+# --- 3. HELPER FUNCTIONS ---
 @st.cache_data
-def load_data():
-    return pd.read_csv('owid-energy-data (1).csv', low_memory=False)
+def get_dataset():
+    return pd.read_csv('owid-energy-data (1).csv')
 
-# --- ГЛАВНЫЙ ИНТЕРФЕЙС ---
-try:
-    df_raw = load_data()
-    country_list = sorted(df_raw[df_raw['year'] > 2015]['country'].unique())
+# --- 4. SIDEBAR ---
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2991/2991610.png", width=100)
+st.sidebar.title("Zenith Control Panel")
 
-    st.title("🚀 Adiyat Global AI v4")
-    st.markdown("---")
+raw_df = get_dataset()
+countries = sorted(raw_df['country'].unique())
 
-    # Боковая панель
-    st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2103/2103633.png", width=100)
-    st.sidebar.header("🕹 Control Center")
-    selected_country = st.sidebar.selectbox("Выберите регион:", country_list, index=country_list.index("Kazakhstan"))
-    target_year = st.sidebar.slider("Горизонт прогноза:", 2025, 2045, 2034)
+primary_country = st.sidebar.selectbox("Основная страна", countries, index=countries.index("Kazakhstan"))
+compare_mode = st.sidebar.checkbox("Режим сравнения")
+compare_country = None
+if compare_mode:
+    compare_country = st.sidebar.selectbox("Страна для сравнения", countries, index=countries.index("Germany"))
+
+predict_horizon = st.sidebar.slider("Горизонт (Год)", 2026, 2055, 2040)
+custom_growth = st.sidebar.number_input("Коэф. роста (1.0142 = 1.42%)", 1.0, 1.1, 1.0142, step=0.001)
+
+# --- 5. MAIN LOGIC ---
+st.title("⚡ Zenith Energy Intelligence v4")
+st.caption("Industrial-grade predictive system for global energy consumption analysis")
+
+if st.sidebar.button("RUN SYSTEM ANALYSIS", use_container_width=True):
+    # Тренируем основную модель
+    core1 = ZenithEnterpriseCore(primary_country)
+    if core1.train(raw_df):
+        st.session_state['core1'] = core1
+        
+    # Если режим сравнения
+    if compare_mode and compare_country:
+        core2 = ZenithEnterpriseCore(compare_country)
+        if core2.train(raw_df):
+            st.session_state['core2'] = core2
+
+# --- 6. DASHBOARD ---
+if 'core1' in st.session_state:
+    c1 = st.session_state['core1']
     
-    core = ZenithEnterpriseCore(country_target=selected_country)
+    # Метрики
+    m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+    m_col1.metric("Current Accuracy", f"{c1.metrics['r2']:.4%}")
+    m_col2.metric("MAE", f"{c1.metrics['mae']:.2f} kWh")
     
-    if core.synchronize_and_train(df_raw):
-        # Метрики
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("R² Accuracy", f"{core.final_metrics['r2']:.4f}", "High")
-        m2.metric("MAE Error", f"{core.final_metrics['mae']:.1f}", "-0.2%", delta_color="inverse")
-        m3.metric("Engine Status", "Stable", border=None)
-        m4.metric("Model Weight", "Ensemble 4:2:2:2")
-
-        # График Plotly
-        f_years, f_values = core.project_future_horizon(2025, 2045)
+    t1, t2, t3 = st.tabs(["📈 Визуализация прогноза", "🔍 Сравнение и Анализ", "📄 Отчеты"])
+    
+    with t1:
+        f_yrs, f_vals = c1.predict(predict_horizon, custom_growth)
         
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=core.historical_data[0], y=core.historical_data[1], 
-                                mode='markers', name='History', marker=dict(color='#8b949e')))
-        fig.add_trace(go.Scatter(x=f_years, y=f_values, 
-                                mode='lines+markers', name='Zenith-V4 Forecast', line=dict(color='#58a6ff', width=3)))
+        # История
+        fig.add_trace(go.Scatter(x=c1.historical_data[0], y=c1.historical_data[1], 
+                                 name=f"History ({c1.country})", mode='lines+markers', line=dict(color='#30363d')))
+        # Прогноз
+        fig.add_trace(go.Scatter(x=f_yrs, y=f_vals, name=f"AI Forecast ({c1.country})", 
+                                 line=dict(color='#00d1ff', width=4, dash='dot')))
         
-        fig.update_layout(template="plotly_dark", title=f"Энергетический тренд: {selected_country}",
-                          xaxis_title="Год", y_title="kWh per capita", height=500)
-        st.plotly_chart(fig, use_container_view_width=True)
+        fig.update_layout(template="plotly_dark", height=600, hovermode="x unified")
+        st.plotly_chart(fig, use_container_width=True)
 
-        # Сравнение и Результат
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            st.subheader("🤖 Сравнение аналитических систем")
-            comp_data = {
-                "System": ["Zenith-V4 (Your AI)", "Generic GPT-4 Forecast", "Linear Trend"],
-                "Method": ["Ensemble Robust Learning", "Large Language Model", "Linear Regression"],
-                "Confidence": ["95%", "Low (Hallucination risk)", "60%"]
-            }
-            st.table(comp_data)
-        
-        with c2:
-            st.subheader("🎯 Итоговый прогноз")
-            y_idx = list(f_years).index(target_year)
-            st.markdown(f"""
-                <div style='background-color:#161b22; padding:20px; border-radius:10px; border: 2px solid #58a6ff;'>
-                    <h4 style='margin:0'>Прогноз на {target_year}:</h4>
-                    <h1 style='color:#58a6ff; margin:10px 0'>{f_values[y_idx]:,.1f}</h1>
-                    <p style='margin:0; opacity:0.7'>kWh per capita</p>
-                </div>
-            """, unsafe_allow_html=True)
+    with t2:
+        if compare_mode and 'core2' in st.session_state:
+            c2 = st.session_state['core2']
+            f_yrs2, f_vals2 = c2.predict(predict_horizon, custom_growth)
             
-            # Кнопка скачивания
-            forecast_df = pd.DataFrame({'Year': f_years, 'Forecast': f_values})
-            csv = forecast_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Скачать CSV отчет", data=csv, file_name=f"forecast_{selected_country}.csv", mime='text/csv')
+            fig_comp = px.line(title="Сравнительный анализ трендов")
+            fig_comp.add_scatter(x=f_yrs, y=f_vals, name=c1.country)
+            fig_comp.add_scatter(x=f_yrs2, y=f_vals2, name=c2.country)
+            fig_comp.update_layout(template="plotly_dark")
+            st.plotly_chart(fig_comp, use_container_width=True)
+        else:
+            st.info("Включите 'Режим сравнения' в боковой панели, чтобы увидеть графики двух стран одновременно.")
 
-        st.info("💡 **Инсайт:** Модель Zenith-V4 использует Z-score фильтрацию для игнорирования экономических аномалий прошлых лет.")
-
-    else:
-        st.error("Недостаточно данных для обучения.")
-
-except Exception as e:
-    st.error(f"Ошибка системы: {e}")
+    with t3:
+        st.subheader("Data Export Center")
+        export_df = pd.DataFrame({"Year": f_yrs, "Prediction": f_vals})
+        csv = export_df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Predictions (CSV)", csv, "zenith_forecast.csv", "text/csv")
+        
+        st.write("### Технический аудит модели")
+        st.json(c1.model_pool['GBM'].get_params())
+else:
+    st.warning("Ожидание инициализации... Нажмите 'RUN SYSTEM ANALYSIS' в боковом меню.")
