@@ -12,7 +12,7 @@ import io
 
 # --- 1. CONFIGURATION & STYLES ---
 st.set_page_config(
-    page_title="Zenith Energy OS v4",
+    page_title="Adiyat Energy OS v4",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -106,7 +106,7 @@ def get_dataset():
 
 # --- 4. SIDEBAR ---
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2991/2991610.png", width=100)
-st.sidebar.title("Zenith Control Panel")
+st.sidebar.title("Adiyat Control Panel")
 
 raw_df = get_dataset()
 countries = sorted(raw_df['country'].unique())
@@ -121,7 +121,7 @@ predict_horizon = st.sidebar.slider("Горизонт (Год)", 2026, 2055, 204
 custom_growth = st.sidebar.number_input("Коэф. роста (1.0142 = 1.42%)", 1.0, 1.1, 1.0142, step=0.001)
 
 # --- 5. MAIN LOGIC ---
-st.title("⚡ Zenith Energy Intelligence v4")
+st.title("⚡ Adiyat Energy Intelligence v4")
 st.caption("Industrial-grade predictive system for global energy consumption analysis")
 
 if st.sidebar.button("RUN SYSTEM ANALYSIS", use_container_width=True):
