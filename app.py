@@ -10,11 +10,10 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from scipy import stats
 import warnings
 
-# Настройки страницы
 st.set_page_config(page_title="Adiyat Global AI", layout="wide")
 warnings.filterwarnings("ignore")
 
-# --- ТВОЙ ОРИГИНАЛЬНЫЙ КЛАСС (БЕЗ ИЗМЕНЕНИЙ В ЛОГИКЕ) ---
+
 class ZenithEnterpriseCore:
     def __init__(self, country_target="Kazakhstan"):
         self.country = country_target
@@ -34,7 +33,7 @@ class ZenithEnterpriseCore:
 
     def _extract_and_purify_signal(self, dataframe):
         df_localized = dataframe[dataframe['country'].str.lower() == self.country.lower()].copy()
-        # Твой фильтр с 1998 года
+        
         df_localized = df_localized[df_localized['year'] >= 1998][['year', 'energy_per_capita']].dropna()
         
         if df_localized.empty:
@@ -70,7 +69,7 @@ class ZenithEnterpriseCore:
         y_blend_scaled = np.average(predictions_matrix, axis=0, weights=model_weights)
         y_pred = self.scaler_y.inverse_transform(y_blend_scaled.reshape(-1, 1)).flatten()
         
-        # Твой стохастический шум
+       
         np.random.seed(13)
         self.y_final_fit = y_pred + np.random.normal(0, 5, y_pred.shape)
         
@@ -93,7 +92,7 @@ class ZenithEnterpriseCore:
         y_scaled_f = np.average(collective_preds, axis=0, weights=model_weights)
         y_raw_f = self.scaler_y.inverse_transform(y_scaled_f.reshape(-1, 1)).flatten()
         
-        # Твой Strategic Growth 1.42%
+        
         base_val = self.historical_data[1][-1]
         final_stabilized_output = []
         for i, val in enumerate(y_raw_f):
@@ -102,7 +101,7 @@ class ZenithEnterpriseCore:
             
         return horizon_range.flatten(), np.array(final_stabilized_output)
 
-# --- ИНТЕРФЕЙС STREAMLIT ---
+
 
 @st.cache_data
 def load_data():
@@ -110,40 +109,40 @@ def load_data():
 
 try:
     df_raw = load_data()
-    # Список стран, где есть данные за последние годы
+    
     country_list = sorted(df_raw[df_raw['year'] > 2015]['country'].unique())
 
     st.title("🚀 Adiyat: Enterprise AI")
     
-    # Сайдбар
+    
     st.sidebar.header("🕹 Control Panel")
     selected_country = st.sidebar.selectbox("Регион анализа:", country_list, index=country_list.index("Kazakhstan"))
     target_year = st.sidebar.slider("Горизонт прогноза:", 2025, 2045, 2030)
 
-    # Инициализация твоего ядра
+    
     core = ZenithEnterpriseCore(country_target=selected_country)
     with st.spinner('Синхронизация нейронных узлов...'):
         success = core.synchronize_and_train(df_raw)
 
     if success:
-        # Дашборд
+        
         col1, col2, col3 = st.columns(3)
         col1.metric("R² Accuracy", f"{core.final_metrics['r2']:.5f}")
         col2.metric("MAE Error", f"{core.final_metrics['mae']:.2f} kWh")
         col3.metric("Stability Index", f"{((1 - (core.final_metrics['mae']/18500))*100):.2f}%")
 
-        # Прогноз
+        
         f_years, f_values = core.project_future_horizon(2025, 2045)
         
-        # Основной контент
+        
         c_left, c_right = st.columns([2, 1])
         
         with c_left:
             st.subheader(f"📈 Strategic Forecast: {selected_country}")
             fig, ax = plt.subplots(figsize=(12, 6))
-            # История
+            
             ax.scatter(core.historical_data[0], core.historical_data[1], color='#2c3e50', alpha=0.3, label='Historical Data')
-            # Твой прогноз
+            
             ax.plot(f_years, f_values, color='#d35400', linewidth=3, marker='h', label='Zenith-V4 Optimized')
             ax.fill_between(f_years, f_values*0.98, f_values*1.02, color='#d35400', alpha=0.1)
             ax.set_facecolor('#fdfdfd')
@@ -159,7 +158,7 @@ try:
             st.title(f"{current_pred:,.1f}")
             st.write("kWh per capita")
             
-            # Математический блок для защиты
+            
             st.info("📊 **Applied Math:** Используется ансамбль Ridge/RF/GBM с весами 4:2:2:2 и вектором индустриального роста $1.42\%$.")
 
     else:
