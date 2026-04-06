@@ -118,7 +118,7 @@ if compare_mode:
     compare_country = st.sidebar.selectbox("Страна для сравнения", countries, index=countries.index("Germany"))
 
 predict_horizon = st.sidebar.slider("Горизонт (Год)", 2026, 2055, 2040)
-custom_growth = st.sidebar.number_input("Коэф. роста (1.0142 = 1.42%)", 1.0, 1.1, 1.0142, step=0.001)
+custom_growth = st.sidebar.number_input("Коэф. роста (1.0142 = 1.42%)", 1.0, 1.42, 1.0142, step=0.001)
 
 # --- 5. MAIN LOGIC ---
 st.title("⚡ Adiyat Energy Intelligence v4")
