@@ -111,14 +111,14 @@ st.sidebar.title("Adiyat Control Panel")
 raw_df = get_dataset()
 countries = sorted(raw_df['country'].unique())
 
-primary_country = st.sidebar.selectbox("Основная страна", countries, index=countries.index("Kazakhstan"))
-compare_mode = st.sidebar.checkbox("Режим сравнения")
+primary_country = st.sidebar.selectbox("Main Country", countries, index=countries.index("Kazakhstan"))
+compare_mode = st.sidebar.checkbox("Regime comparing")
 compare_country = None
 if compare_mode:
-    compare_country = st.sidebar.selectbox("Страна для сравнения", countries, index=countries.index("Germany"))
+    compare_country = st.sidebar.selectbox("Country for compare", countries, index=countries.index("Germany"))
 
-predict_horizon = st.sidebar.slider("Горизонт (Год)", 2026, 2055, 2040)
-custom_growth = st.sidebar.number_input("Коэф. роста (1.0142 = 1.42%)", 1.0, 1.42, 1.0142, step=0.001)
+predict_horizon = st.sidebar.slider("horizont (year)", 2026, 2055, 2040)
+custom_growth = st.sidebar.number_input("Coef. growth (1.0142 = 1.42%)", 1.0, 1.42, 1.0142, step=0.001)
 
 # --- 5. MAIN LOGIC ---
 st.title("⚡ Adiyat Energy Intelligence v4")
@@ -145,7 +145,7 @@ if 'core1' in st.session_state:
     m_col1.metric("Current Accuracy", f"{c1.metrics['r2']:.4%}")
     m_col2.metric("MAE", f"{c1.metrics['mae']:.2f} kWh")
     
-    t1, t2, t3 = st.tabs(["📈 Визуализация прогноза", "🔍 Сравнение и Анализ", "📄 Отчеты"])
+    t1, t2, t3 = st.tabs(["📈 Vizualition of prediction", "🔍 Compare and Analysis", "📄 Overall"])
     
     with t1:
         f_yrs, f_vals = c1.predict(predict_horizon, custom_growth)
@@ -166,13 +166,13 @@ if 'core1' in st.session_state:
             c2 = st.session_state['core2']
             f_yrs2, f_vals2 = c2.predict(predict_horizon, custom_growth)
             
-            fig_comp = px.line(title="Сравнительный анализ трендов")
+            fig_comp = px.line(title="Comparative analysis of trends")
             fig_comp.add_scatter(x=f_yrs, y=f_vals, name=c1.country)
             fig_comp.add_scatter(x=f_yrs2, y=f_vals2, name=c2.country)
             fig_comp.update_layout(template="plotly_dark")
             st.plotly_chart(fig_comp, use_container_width=True)
         else:
-            st.info("Включите 'Режим сравнения' в боковой панели, чтобы увидеть графики двух стран одновременно.")
+            st.info("Turn on 'Comparison Mode' in the sidebar to see the charts of two countries at the same time.")
 
     with t3:
         st.subheader("Data Export Center")
@@ -180,7 +180,7 @@ if 'core1' in st.session_state:
         csv = export_df.to_csv(index=False).encode('utf-8')
         st.download_button("Download Predictions (CSV)", csv, "zenith_forecast.csv", "text/csv")
         
-        st.write("### Технический аудит модели")
+        st.write("### Technical audit of the model")
         st.json(c1.model_pool['GBM'].get_params())
 else:
-    st.warning("Ожидание инициализации... Нажмите 'RUN SYSTEM ANALYSIS' в боковом меню.")
+    st.warning("Waiting for initialization... Press 'RUN SYSTEM ANALYSIS' in the side menu.")
