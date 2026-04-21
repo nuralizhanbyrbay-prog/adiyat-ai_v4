@@ -12,7 +12,7 @@ import io
 
 # --- 1. CONFIGURATION & STYLES ---
 st.set_page_config(
-    page_title="EnergyMetric AI Energy OS v4",
+    page_title="EnergyMetric AI",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -102,35 +102,35 @@ class ZenithEnterpriseCore:
 # --- 3. HELPER FUNCTIONS ---
 @st.cache_data
 def get_dataset():
-    # Убедись, что файл лежит в той же папке
     return pd.read_csv('owid-energy-data (1).csv')
 
-# --- 4. SIDEBAR (ОБНОВЛЕННЫЙ) ---
-# Использование качественного изображения энергетической инфраструктуры
-st.sidebar.image("https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?q=80&w=2070&auto=format&fit=crop", use_container_width=True)
-st.sidebar.title("EnergyMetric AI Control Panel")
+# --- 4. SIDEBAR ---
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2991/2991610.png", width=100)
+st.sidebar.title("EnergyMetric Ai Control Panel")
 
 raw_df = get_dataset()
 countries = sorted(raw_df['country'].unique())
 
-primary_country = st.sidebar.selectbox("Main Country", countries, index=countries.index("Kazakhstan") if "Kazakhstan" in countries else 0)
-compare_mode = st.sidebar.checkbox("Regime comparing")
+primary_country = st.sidebar.selectbox("Основная страна", countries, index=countries.index("Kazakhstan"))
+compare_mode = st.sidebar.checkbox("Режим сравнения")
 compare_country = None
 if compare_mode:
-    compare_country = st.sidebar.selectbox("Country for compare", countries, index=countries.index("Germany") if "Germany" in countries else 0)
+    compare_country = st.sidebar.selectbox("Страна для сравнения", countries, index=countries.index("Germany"))
 
-predict_horizon = st.sidebar.slider("horizont (year)", 2026, 2055, 2040)
-custom_growth = st.sidebar.number_input("Coef. growth (1.0142 = 1.42%)", 1.0, 1.42, 1.0142, step=0.001)
+predict_horizon = st.sidebar.slider("Горизонт (Год)", 2026, 2055, 2040)
+custom_growth = st.sidebar.number_input("Коэф. роста (1.0142 = 1.42%)", 1.0, 1.1, 1.0142, step=0.001)
 
 # --- 5. MAIN LOGIC ---
-st.title("⚡ EnergyMetric AI Energy Intelligence v4")
+st.title("EnergyMetric Artificial Intelligence")
 st.caption("Industrial-grade predictive system for global energy consumption analysis")
 
 if st.sidebar.button("RUN SYSTEM ANALYSIS", use_container_width=True):
+    # Тренируем основную модель
     core1 = ZenithEnterpriseCore(primary_country)
     if core1.train(raw_df):
         st.session_state['core1'] = core1
         
+    # Если режим сравнения
     if compare_mode and compare_country:
         core2 = ZenithEnterpriseCore(compare_country)
         if core2.train(raw_df):
@@ -140,19 +140,24 @@ if st.sidebar.button("RUN SYSTEM ANALYSIS", use_container_width=True):
 if 'core1' in st.session_state:
     c1 = st.session_state['core1']
     
+    # Метрики
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
     m_col1.metric("Current Accuracy", f"{c1.metrics['r2']:.4%}")
     m_col2.metric("MAE", f"{c1.metrics['mae']:.2f} kWh")
     
-    t1, t2, t3 = st.tabs(["📈 Vizualition of prediction", "🔍 Compare and Analysis", "📄 Overall"])
+    t1, t2, t3 = st.tabs(["📈 Визуализация прогноза", "🔍 Сравнение и Анализ", "📄 Отчеты"])
     
     with t1:
         f_yrs, f_vals = c1.predict(predict_horizon, custom_growth)
+        
         fig = go.Figure()
+        # История
         fig.add_trace(go.Scatter(x=c1.historical_data[0], y=c1.historical_data[1], 
                                  name=f"History ({c1.country})", mode='lines+markers', line=dict(color='#30363d')))
+        # Прогноз
         fig.add_trace(go.Scatter(x=f_yrs, y=f_vals, name=f"AI Forecast ({c1.country})", 
                                  line=dict(color='#00d1ff', width=4, dash='dot')))
+        
         fig.update_layout(template="plotly_dark", height=600, hovermode="x unified")
         st.plotly_chart(fig, use_container_width=True)
 
@@ -160,20 +165,22 @@ if 'core1' in st.session_state:
         if compare_mode and 'core2' in st.session_state:
             c2 = st.session_state['core2']
             f_yrs2, f_vals2 = c2.predict(predict_horizon, custom_growth)
-            fig_comp = px.line(title="Comparative analysis of trends")
+            
+            fig_comp = px.line(title="Сравнительный анализ трендов")
             fig_comp.add_scatter(x=f_yrs, y=f_vals, name=c1.country)
             fig_comp.add_scatter(x=f_yrs2, y=f_vals2, name=c2.country)
             fig_comp.update_layout(template="plotly_dark")
             st.plotly_chart(fig_comp, use_container_width=True)
         else:
-            st.info("Turn on 'Comparison Mode' in the sidebar to see comparison.")
+            st.info("Включите 'Режим сравнения' в боковой панели, чтобы увидеть графики двух стран одновременно.")
 
     with t3:
         st.subheader("Data Export Center")
         export_df = pd.DataFrame({"Year": f_yrs, "Prediction": f_vals})
         csv = export_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Predictions (CSV)", csv, "energymetric_forecast.csv", "text/csv")
-        st.write("### Technical audit of the model")
+        st.download_button("Download Predictions (CSV)", csv, "zenith_forecast.csv", "text/csv")
+        
+        st.write("### Технический аудит модели")
         st.json(c1.model_pool['GBM'].get_params())
 else:
-    st.warning("Waiting for initialization... Press 'RUN SYSTEM ANALYSIS' in the side menu.")
+    st.warning("Ожидание инициализации... Нажмите 'RUN SYSTEM ANALYSIS' в боковом меню.")
