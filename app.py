@@ -12,7 +12,7 @@ import io
 
 # --- 1. CONFIGURATION & STYLES ---
 st.set_page_config(
-    page_title="Sparta AI Energy OS v4",
+    page_title="EnergyMetric AI Energy OS v4",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -121,7 +121,7 @@ predict_horizon = st.sidebar.slider("horizont (year)", 2026, 2055, 2040)
 custom_growth = st.sidebar.number_input("Coef. growth (1.0142 = 1.42%)", 1.0, 1.42, 1.0142, step=0.001)
 
 # --- 5. MAIN LOGIC ---
-st.title("⚡ Sparta AI Energy Intelligence v4")
+st.title("⚡ EnergyMetric AI Energy Intelligence v4")
 st.caption("Industrial-grade predictive system for global energy consumption analysis")
 
 if st.sidebar.button("RUN SYSTEM ANALYSIS", use_container_width=True):
