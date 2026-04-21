@@ -105,7 +105,7 @@ def get_dataset():
     return pd.read_csv('owid-energy-data (1).csv')
 
 # --- 4. SIDEBAR ---
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2991/2991610.png", width=100)
+st.sidebar.image("https://sl.bing.net/i6N2AJmYOXY", width=100)
 st.sidebar.title("EnergyMetric AI Control Panel")
 
 raw_df = get_dataset()
