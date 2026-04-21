@@ -106,7 +106,7 @@ def get_dataset():
 
 # --- 4. SIDEBAR ---
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2991/2991610.png", width=100)
-st.sidebar.title("Sparta AI Control Panel")
+st.sidebar.title("EnergyMetric AI Control Panel")
 
 raw_df = get_dataset()
 countries = sorted(raw_df['country'].unique())
